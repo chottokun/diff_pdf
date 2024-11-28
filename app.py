@@ -25,6 +25,7 @@ box_color = st.sidebar.color_picker("Box Color", "#0000FF")
 deleted_box_color = st.sidebar.color_picker("Deleted Box Color", "#FF0000") # 削除された部分の色のオプション
 line_width = st.sidebar.slider("Line Width", 1, 5, 2)
 show_deleted_boxes = st.sidebar.checkbox("Show Deleted Boxes", False)
+show_updated_boxes = st.sidebar.checkbox("Show Updated Boxes", True) # 更新された部分の表示オプション
 show_html = st.sidebar.checkbox("Show HTML Diff", True) # HTML表示の有無を選択するオプション
 show_diff_image = st.sidebar.checkbox("Show Diff Image", True) # 差分画像表示の有無を選択するオプション
 
@@ -81,7 +82,9 @@ def compare_pdfs(pdf1_path, pdf2_path):
 
             # img1をコピーして、差分をハイライト表示する画像を作成
             img1_highlighted = img1.copy()
-            draw = ImageDraw.Draw(img1_highlighted)
+            draw1 = ImageDraw.Draw(img1_highlighted)
+            img2_highlighted = img2.copy()
+            draw2 = ImageDraw.Draw(img2_highlighted)
 
             # 差分をハイライト
             i = 0
@@ -91,24 +94,33 @@ def compare_pdfs(pdf1_path, pdf2_path):
                     i += 1
                     j += 1
                 else:
-                    if show_deleted_boxes:
+                    # first PDF: 削除された文字をハイライト
+                    if show_deleted_boxes and i < len(text1):
                         x0, y0, x1, y1 = text1[i][:4]
-                        draw.rectangle([(x0, y0), (x1, y1)], outline=deleted_box_color, width=line_width) # 削除された部分の色を使用
+                        draw1.rectangle([(x0, y0), (x1, y1)], outline=deleted_box_color, width=line_width)
+                    # second PDF: 追加/変更された文字をハイライト
+                    if show_updated_boxes and j < len(text2):
+                        x0, y0, x1, y1 = text2[j][:4]
+                        draw2.rectangle([(x0, y0), (x1, y1)], outline=box_color, width=line_width)
                     i += 1
+                    j += 1
+            # first PDF: 残りの削除された文字をハイライト
             if show_deleted_boxes:
                 while i < len(text1):
                     x0, y0, x1, y1 = text1[i][:4]
-                    draw.rectangle([(x0, y0), (x1, y1)], outline=deleted_box_color, width=line_width) # 削除された部分の色を使用
+                    draw1.rectangle([(x0, y0), (x1, y1)], outline=deleted_box_color, width=line_width)
                     i += 1
-            while j < len(text2):
-                x0, y0, x1, y1 = text2[j][:4]
-                draw.rectangle([(x0, y0), (x1, y1)], outline=box_color, width=line_width)
-                j += 1
+            # second PDF: 残りの追加された文字をハイライト
+            if show_updated_boxes:
+                while j < len(text2):
+                    x0, y0, x1, y1 = text2[j][:4]
+                    draw2.rectangle([(x0, y0), (x1, y1)], outline=box_color, width=line_width)
+                    j += 1
 
-            # img1_highlightedとimg2を横に並べて表示
-            img_combined = Image.new("RGB", (img1_highlighted.width + img2.width, img1_highlighted.height))
+            # img1_highlightedとimg2_highlightedを横に並べて表示
+            img_combined = Image.new("RGB", (img1_highlighted.width + img2_highlighted.width, img2_highlighted.height))
             img_combined.paste(img1_highlighted, (0, 0))
-            img_combined.paste(img2, (img1_highlighted.width, 0))
+            img_combined.paste(img2_highlighted, (img1_highlighted.width, 0))
 
             # 差分画像を一時ファイルに保存
             img_path = os.path.join(temp_dir, f"page_{page_num + 1}_diff.png")
